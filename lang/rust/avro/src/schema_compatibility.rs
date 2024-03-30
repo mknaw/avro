@@ -65,6 +65,7 @@ impl Checker {
         if w_type != SchemaKind::Union
             && (r_type.is_primitive()
                 || r_type == SchemaKind::Fixed
+                || r_type == SchemaKind::Uuid
                 || r_type == SchemaKind::Date
                 || r_type == SchemaKind::TimeMillis
                 || r_type == SchemaKind::TimeMicros
@@ -400,6 +401,13 @@ impl SchemaCompatibility {
                         }
                     }
                 }
+                SchemaKind::Uuid => {
+                    return check_writer_type(
+                        writers_schema,
+                        readers_schema,
+                        vec![r_type, SchemaKind::String],
+                    );
+                }
                 SchemaKind::Date | SchemaKind::TimeMillis => {
                     return check_writer_type(
                         writers_schema,
@@ -462,8 +470,11 @@ impl SchemaCompatibility {
             SchemaKind::Float => {
                 check_reader_type_multi(r_type, vec![SchemaKind::Float, SchemaKind::Double], w_type)
             }
-            SchemaKind::String => check_reader_type(r_type, SchemaKind::Bytes, w_type),
+            SchemaKind::String => {
+                check_reader_type_multi(r_type, vec![SchemaKind::Bytes, SchemaKind::Uuid], w_type)
+            }
             SchemaKind::Bytes => check_reader_type(r_type, SchemaKind::String, w_type),
+            SchemaKind::Uuid => check_reader_type(r_type, SchemaKind::String, w_type),
             SchemaKind::Date | SchemaKind::TimeMillis => {
                 check_reader_type(r_type, SchemaKind::Int, w_type)
             }
@@ -970,6 +981,8 @@ mod tests {
             (Schema::String, Schema::Bytes),
             (Schema::Bytes, Schema::String),
             // logical types
+            (Schema::Uuid, Schema::Uuid),
+            (Schema::Uuid, Schema::String),
             (Schema::Date, Schema::Int),
             (Schema::TimeMillis, Schema::Int),
             (Schema::TimeMicros, Schema::Long),
@@ -979,6 +992,7 @@ mod tests {
             (Schema::LocalTimestampMillis, Schema::Long),
             (Schema::LocalTimestampMicros, Schema::Long),
             (Schema::LocalTimestampNanos, Schema::Long),
+            (Schema::String, Schema::Uuid),
             (Schema::Int, Schema::Date),
             (Schema::Int, Schema::TimeMillis),
             (Schema::Long, Schema::TimeMicros),
