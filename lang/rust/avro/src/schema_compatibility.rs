@@ -64,6 +64,7 @@ impl Checker {
 
         if w_type != SchemaKind::Union
             && (r_type.is_primitive()
+                || r_type == SchemaKind::Ref
                 || r_type == SchemaKind::Fixed
                 || r_type == SchemaKind::Uuid
                 || r_type == SchemaKind::Date
@@ -363,6 +364,9 @@ impl SchemaCompatibility {
                         writer_name: writers_name.name.clone(),
                         reader_name: readers_name.name.clone(),
                     });
+                }
+                SchemaKind::Ref => {
+                    return Ok(());
                 }
                 SchemaKind::Fixed => {
                     if let Schema::Fixed(FixedSchema {
@@ -1699,6 +1703,31 @@ mod tests {
                     .to_string()
             );
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_compatibility_with_composition() -> TestResult {
+        let raw_schema_1 = r#"{
+            "name": "A",
+            "type": "record",
+            "fields": [
+                {"name": "field_one", "type": "float"}
+            ]
+        }"#;
+
+        // This definition depends on the definition of A above
+        let raw_schema_2 = r#"{
+            "name": "B",
+            "type": "record",
+            "fields": [
+                {"name": "field_one", "type": "A"}
+            ]
+        }"#;
+        let schemas = Schema::parse_list(&[raw_schema_1, raw_schema_2]).unwrap();
+        let schema = &schemas[1];
+        assert!(SchemaCompatibility::mutual_read(&schema, &schema).is_ok());
 
         Ok(())
     }
